@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 try:
     import tensorflow.compat.v1 as tf
 
@@ -7,12 +5,10 @@ try:
 except:
     import tensorflow as tf
 import os
-import sys
 
 from tensorflow.python.framework import ops
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
 grouping_module = tf.load_op_library(os.path.join(BASE_DIR, "tf_grouping_so.so"))
 
 

@@ -1,29 +1,22 @@
 """Frustum PointNets v2 Model."""
 
-from __future__ import print_function
-
-import os
-import sys
-
-import numpy as np
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import tf_util
-from model_util import (
-    NUM_HEADING_BIN,
-    NUM_OBJECT_POINT,
-    NUM_SIZE_CLUSTER,
-    get_center_regression_net,
-    get_loss,
-    parse_output_to_tensors,
-    placeholder_inputs,
-    point_cloud_masking,
+from ..utils import tf_util
+from ..utils.pointnet_util import (
+    pointnet_fp_module,
+    pointnet_sa_module,
+    pointnet_sa_module_msg,
 )
-from pointnet_util import pointnet_fp_module, pointnet_sa_module, pointnet_sa_module_msg
+
+# from model_util import (
+#     NUM_HEADING_BIN,
+#     NUM_SIZE_CLUSTER,
+#     get_center_regression_net,
+#     get_loss,
+#     parse_output_to_tensors,
+#     point_cloud_masking,
+# )
 
 
 def get_instance_seg_v2_net(

@@ -1,23 +1,16 @@
-import os
-import sys
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(BASE_DIR))
-sys.path.append(os.path.join(BASE_DIR, "contact_graspnet"))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "tf_ops/grouping"))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "utils"))
-
-import argparse
 import copy
 import glob
+import os
 
 import cv2
 import numpy as np
-import provider
 import trimesh.transformations as tra
 from PIL import Image
-from scene_renderer import SceneRenderer
 from scipy.spatial import cKDTree
+
+from .pointnet2.utils import provider
+
+# from .scene_renderer import SceneRenderer
 
 
 def load_scene_contacts(

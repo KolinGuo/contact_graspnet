@@ -1,10 +1,9 @@
-from __future__ import print_function
-
 """ Furthest point sampling
 Original author: Haoqiang Fan
 Modified by Charles R. Qi
-All Rights Reserved. 2017. 
+All Rights Reserved. 2017.
 """
+
 try:
     import tensorflow.compat.v1 as tf
 
@@ -12,13 +11,10 @@ try:
 except:
     import tensorflow as tf
 import os
-import sys
 
 from tensorflow.python.framework import ops
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-print(BASE_DIR)
 sampling_module = tf.load_op_library(os.path.join(BASE_DIR, "tf_sampling_so.so"))
 
 

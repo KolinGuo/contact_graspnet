@@ -1,23 +1,13 @@
 import argparse
 import importlib
 import os
-import socket
-import sys
-import time
+from pathlib import Path
 
 import numpy as np
-import scipy.misc
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, "models"))
-sys.path.append(os.path.join(BASE_DIR, "utils"))
-import provider
-import show3d_balls
-
-sys.path.append(os.path.join(ROOT_DIR, "data_prep"))
-import part_dataset
+from ..utils import show3d_balls
+from . import part_dataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu", type=int, default=0, help="GPU to use [default: GPU 0]")
@@ -42,6 +32,7 @@ parser.add_argument(
 FLAGS = parser.parse_args()
 
 
+ROOT_DIR = str(Path(__file__).resolve().parents[1])
 MODEL_PATH = FLAGS.model_path
 GPU_INDEX = FLAGS.gpu
 NUM_POINT = FLAGS.num_point

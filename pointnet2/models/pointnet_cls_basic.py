@@ -3,17 +3,9 @@ PointNet version 1 Model
 Reference: https://github.com/charlesq34/pointnet
 """
 
-import math
-import os
-import sys
-
-import numpy as np
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, "../utils"))
-import tf_util
+from ..utils import tf_util
 
 
 def placeholder_inputs(batch_size, num_point):

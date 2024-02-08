@@ -1,13 +1,9 @@
 import argparse
 import glob
 import os
-import sys
 
 import h5py
 import numpy as np
-
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(ROOT_DIR)
 
 from contact_graspnet.data import PointCloudReader
 from contact_graspnet.mesh_utils import (
@@ -31,7 +27,7 @@ def grasps_contact_info(grasp_tfs, successfuls, obj_mesh, check_collisions=True)
     Returns:
         [dict] -- object contact dictionary with all necessary information
     """
-    print("evaluating {} grasps".format(len(grasp_tfs)))
+    print(f"evaluating {len(grasp_tfs)} grasps")
     if check_collisions:
         collisions, _ = in_collision_with_gripper(
             obj_mesh,

@@ -1,26 +1,20 @@
 import argparse
 import importlib
-import math
 import os
 import socket
 import sys
 from datetime import datetime
+from pathlib import Path
 
 # import h5pyprovider
 import numpy as np
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)  # model
-sys.path.append(ROOT_DIR)  # provider
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import pc_util
-import provider
-import tf_util
+from ..utils import provider
+from . import pc_util, scannet_dataset
 
-sys.path.append(os.path.join(ROOT_DIR, "data_prep"))
-import scannet_dataset
+BASE_DIR = str(Path(__file__).resolve().parent)
+ROOT_DIR = str(Path(__file__).resolve().parents[1])
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu", type=int, default=0, help="GPU to use [default: GPU 0]")
@@ -244,7 +238,7 @@ def get_batch_wdp(dataset, idxs, start_idx, end_idx):
         batch_smpw[i, :] = smpw
 
         dropout_ratio = np.random.random() * 0.875  # 0-0.875
-        drop_idx = np.where(np.random.random((ps.shape[0])) <= dropout_ratio)[0]
+        drop_idx = np.where(np.random.random(ps.shape[0]) <= dropout_ratio)[0]
         batch_data[i, drop_idx, :] = batch_data[i, 0, :]
         batch_label[i, drop_idx] = batch_label[i, 0]
         batch_smpw[i, drop_idx] *= 0
@@ -402,7 +396,7 @@ def eval_one_epoch(sess, ops, test_writer):
         % (
             np.mean(
                 np.array(total_correct_class_vox[1:])
-                / (np.array(total_seen_class_vox[1:], dtype=np.float) + 1e-6)
+                / (np.array(total_seen_class_vox[1:], dtype=float) + 1e-6)
             )
         )
     )
@@ -412,7 +406,7 @@ def eval_one_epoch(sess, ops, test_writer):
         % (
             np.mean(
                 np.array(total_correct_class[1:])
-                / (np.array(total_seen_class[1:], dtype=np.float) + 1e-6)
+                / (np.array(total_seen_class[1:], dtype=float) + 1e-6)
             )
         )
     )
@@ -446,7 +440,7 @@ def eval_one_epoch(sess, ops, test_writer):
         % (
             np.average(
                 np.array(total_correct_class[1:])
-                / (np.array(total_seen_class[1:], dtype=np.float) + 1e-6),
+                / (np.array(total_seen_class[1:], dtype=float) + 1e-6),
                 weights=caliweights,
             )
         )
@@ -582,7 +576,7 @@ def eval_whole_scene_one_epoch(sess, ops, test_writer):
         % (
             np.mean(
                 np.array(total_correct_class_vox[1:])
-                / (np.array(total_seen_class_vox[1:], dtype=np.float) + 1e-6)
+                / (np.array(total_seen_class_vox[1:], dtype=float) + 1e-6)
             )
         )
     )
@@ -594,7 +588,7 @@ def eval_whole_scene_one_epoch(sess, ops, test_writer):
         % (
             np.mean(
                 np.array(total_correct_class[1:])
-                / (np.array(total_seen_class[1:], dtype=np.float) + 1e-6)
+                / (np.array(total_seen_class[1:], dtype=float) + 1e-6)
             )
         )
     )
@@ -628,7 +622,7 @@ def eval_whole_scene_one_epoch(sess, ops, test_writer):
     ])
     caliacc = np.average(
         np.array(total_correct_class_vox[1:])
-        / (np.array(total_seen_class_vox[1:], dtype=np.float) + 1e-6),
+        / (np.array(total_seen_class_vox[1:], dtype=float) + 1e-6),
         weights=caliweights,
     )
     log_string("eval whole scene point calibrated average acc vox: %f" % caliacc)

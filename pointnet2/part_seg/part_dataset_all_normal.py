@@ -172,9 +172,7 @@ if __name__ == "__main__":
     print(ps)
     print(normal)
 
-    sys.path.append("../utils")
-    import show3d_balls
-
+    from ..utils import show3d_balls
     show3d_balls.showpoints(ps, normal + 1, ballradius=8)
 
     d = PartNormalDataset(

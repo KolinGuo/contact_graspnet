@@ -1,13 +1,8 @@
 import os
-import sys
-
-BASE_DIR = os.path.dirname(__file__)
-
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, "../"))
 
 import numpy as np
-import pc_util
+
+from .. import pc_util
 
 data = np.load("scannet_scenes/scene0001_01.npy")
 scene_points = data[:, 0:3]

@@ -2,17 +2,12 @@
 ModelNet dataset. Support ModelNet40, ModelNet10, XYZ and normal channels. Up to 10000 points.
 """
 
-import json
 import os
 import os.path
-import sys
 
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = BASE_DIR
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import provider
+from .utils import provider
 
 
 def pc_normalize(pc):

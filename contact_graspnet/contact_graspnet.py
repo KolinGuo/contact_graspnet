@@ -1,24 +1,15 @@
-import os
-import sys
-
 import numpy as np
 import tensorflow.compat.v1 as tf
 
-tf.disable_eager_execution()
-TF2 = True
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOT_DIR = os.path.dirname(os.path.dirname(BASE_DIR))
-
-sys.path.append(os.path.join(BASE_DIR))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "utils"))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2"))
-
-import mesh_utils
-import tf_util
-from pointnet_util import pointnet_fp_module, pointnet_sa_module, pointnet_sa_module_msg
-from tf_grouping import group_point, knn_point, query_ball_point
-from tf_sampling import farthest_point_sample, gather_point
+from . import mesh_utils
+from .pointnet2.tf_ops.grouping.tf_grouping import group_point
+from .pointnet2.tf_ops.sampling.tf_sampling import farthest_point_sample, gather_point
+from .pointnet2.utils import tf_util
+from .pointnet2.utils.pointnet_util import (
+    pointnet_fp_module,
+    pointnet_sa_module,
+    pointnet_sa_module_msg,
+)
 
 
 def placeholder_inputs(batch_size, num_input_points=20000, input_normals=False):

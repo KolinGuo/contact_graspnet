@@ -4,16 +4,14 @@ Faster IO than ModelNetDataset in the first epoch.
 """
 
 import os
-import sys
+from pathlib import Path
 
 import h5py
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-ROOT_DIR = BASE_DIR
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import provider
+from .utils import provider
+
+ROOT_DIR = str(Path(__file__).resolve().parent)
 
 # Download dataset for point cloud classification
 DATA_DIR = os.path.join(ROOT_DIR, "data")
@@ -55,7 +53,7 @@ def loadDataFile(filename):
     return load_h5(filename)
 
 
-class ModelNetH5Dataset(object):
+class ModelNetH5Dataset:
     def __init__(self, list_filename, batch_size=32, npoints=1024, shuffle=True):
         self.list_filename = list_filename
         self.batch_size = batch_size

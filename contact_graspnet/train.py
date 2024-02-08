@@ -5,29 +5,25 @@ import time
 from datetime import datetime
 
 import numpy as np
-from genericpath import exists
-from tqdm import tqdm
+import tensorflow.compat.v1 as tf
+
+from contact_graspnet import config_utils
+from contact_graspnet.contact_grasp_estimator import GraspEstimator
+from contact_graspnet.data import (
+    PointCloudReader,
+    center_pc_convert_cam,
+    load_scene_contacts,
+)
+from contact_graspnet.summaries import build_file_writers, build_summary_ops
+from contact_graspnet.tf_train_ops import build_train_op, load_labels_and_losses
 
 CONTACT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROOT_DIR = os.path.dirname(os.path.dirname(BASE_DIR))
-sys.path.append(os.path.join(BASE_DIR))
-sys.path.append(os.path.join(ROOT_DIR))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "models"))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "utils"))
-
-import tensorflow.compat.v1 as tf
 
 tf.disable_eager_execution()
 TF2 = True
 physical_devices = tf.config.experimental.list_physical_devices("GPU")
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-import config_utils
-from contact_grasp_estimator import GraspEstimator
-from data import PointCloudReader, center_pc_convert_cam, load_scene_contacts
-from summaries import build_file_writers, build_summary_ops
-from tf_train_ops import build_train_op, load_labels_and_losses
 
 
 def train(global_config, log_dir):
@@ -108,7 +104,7 @@ def train(global_config, log_dir):
         # sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
         file_writers = build_file_writers(sess, log_dir)
 
-    ## define: epoch = arbitrary number of views of every training scene
+    # define: epoch = arbitrary number of views of every training scene
     cur_epoch = sess.run(ops["step"]) // num_train_samples
     for epoch in range(cur_epoch, global_config["OPTIMIZER"]["max_epoch"]):
         log_string("**** EPOCH %03d ****" % (epoch))
@@ -116,7 +112,7 @@ def train(global_config, log_dir):
         sess.run(ops["iterator"].initializer)
         epoch_time = time.time()
         step = train_one_epoch(sess, ops, summary_ops, file_writers, pcreader)
-        log_string("trained epoch {} in: {}".format(epoch, time.time() - epoch_time))
+        log_string(f"trained epoch {epoch} in: {time.time() - epoch_time}")
 
         # Save the variables to disk.
         save_path = saver.save(
@@ -130,7 +126,7 @@ def train(global_config, log_dir):
         if num_test_samples > 0:
             eval_time = time.time()
             eval_validation_scenes(sess, ops, summary_ops, file_writers, pcreader)
-            log_string("evaluation time: {}".format(time.time() - eval_time))
+            log_string(f"evaluation time: {time.time() - eval_time}")
 
 
 def train_one_epoch(sess, ops, summary_ops, file_writers, pcreader):

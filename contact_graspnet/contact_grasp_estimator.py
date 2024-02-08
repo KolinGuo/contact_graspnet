@@ -4,16 +4,8 @@ import sys
 import numpy as np
 import tensorflow.compat.v1 as tf
 
-tf.disable_eager_execution()
-TF2 = True
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(BASE_DIR))
-sys.path.append(os.path.join(BASE_DIR, "pointnet2", "utils"))
-sys.path.append(os.path.abspath(__file__))
-
-import config_utils
-from data import (
+from . import config_utils
+from .data import (
     depth2pc,
     distance_by_translation_point,
     farthest_points,
@@ -21,7 +13,7 @@ from data import (
     regularize_pc_point_count,
     reject_median_outliers,
 )
-from tf_train_ops import get_bn_decay
+from .tf_train_ops import get_bn_decay
 
 
 class GraspEstimator:
@@ -45,7 +37,7 @@ class GraspEstimator:
             self._contact_grasp_cfg = cfg
 
         self._model_func = importlib.import_module(
-            self._contact_grasp_cfg["MODEL"]["model"]
+            "contact_graspnet." + self._contact_grasp_cfg["MODEL"]["model"]
         )
         self._num_input_points = (
             self._contact_grasp_cfg["DATA"]["raw_num_points"]

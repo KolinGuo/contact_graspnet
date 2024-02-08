@@ -4,18 +4,9 @@ Author: Charles R. Qi
 Date: November 2017
 """
 
-import os
-import sys
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-sys.path.append(os.path.join(ROOT_DIR, "tf_ops/sampling"))
-sys.path.append(os.path.join(ROOT_DIR, "tf_ops/grouping"))
-sys.path.append(os.path.join(ROOT_DIR, "tf_ops/3d_interpolation"))
-from tf_grouping import group_point, knn_point, query_ball_point
-from tf_interpolate import three_interpolate, three_nn
-from tf_sampling import farthest_point_sample, gather_point
+from ..tf_ops.grouping.tf_grouping import group_point, knn_point, query_ball_point
+from ..tf_ops.interpolation.tf_interpolate import three_interpolate, three_nn
+from ..tf_ops.sampling.tf_sampling import farthest_point_sample, gather_point
 
 try:
     import tensorflow.compat.v1 as tf
@@ -27,7 +18,8 @@ except:
 
     TF2 = False
 import numpy as np
-import tf_util
+
+from . import tf_util
 
 
 def sample_and_group(npoint, radius, nsample, xyz, points, knn=False, use_xyz=True):
@@ -250,7 +242,7 @@ def pointnet_sa_module_msg(
     use_xyz=True,
     use_nchw=False,
 ):
-    """PointNet Set Abstraction (SA) module with Multi-Scale Grouping (MSG)
+    r"""PointNet Set Abstraction (SA) module with Multi-Scale Grouping (MSG)
     Input:
         xyz: (batch_size, ndataset, 3) TF tensor
         points: (batch_size, ndataset, channel) TF tensor

@@ -5,25 +5,18 @@ Will use H5 dataset in default. If using normal, will shift to the normal datase
 
 import argparse
 import importlib
-import math
 import os
 import socket
 import sys
 from datetime import datetime
+from pathlib import Path
 
-import h5py
 import numpy as np
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = BASE_DIR
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "models"))
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import modelnet_dataset
-import modelnet_h5_dataset
-import provider
-import tf_util
+from . import modelnet_dataset, modelnet_h5_dataset
+
+ROOT_DIR = BASE_DIR = str(Path(__file__).resolve().parent)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu", type=int, default=0, help="GPU to use [default: GPU 0]")
@@ -355,8 +348,7 @@ def eval_one_epoch(sess, ops, test_writer):
         "eval avg class acc: %f"
         % (
             np.mean(
-                np.array(total_correct_class)
-                / np.array(total_seen_class, dtype=np.float)
+                np.array(total_correct_class) / np.array(total_seen_class, dtype=float)
             )
         )
     )

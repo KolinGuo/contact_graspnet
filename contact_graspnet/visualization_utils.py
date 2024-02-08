@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import mayavi.mlab as mlab
-import mesh_utils
 import numpy as np
-from matplotlib import cm
+
+from . import mesh_utils
 
 
 def plot_mesh(mesh, cam_trafo=np.eye(4), mesh_pose=np.eye(4)):

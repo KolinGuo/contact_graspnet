@@ -1,22 +1,13 @@
 import argparse
 import importlib
-import math
 import os
-import socket
-import sys
 from datetime import datetime
+from pathlib import Path
 
-import h5py
 import numpy as np
 import tensorflow as tf
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(ROOT_DIR, "models"))
-sys.path.append(os.path.join(ROOT_DIR, "utils"))
-import part_dataset_all_normal
-import tf_util
+from .part_dataset_all_normal import PartNormalDataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu", type=int, default=0, help="GPU to use [default: GPU 0]")
@@ -54,6 +45,7 @@ GPU_INDEX = FLAGS.gpu
 
 MODEL_PATH = FLAGS.model_path
 MODEL = importlib.import_module(FLAGS.model)  # import network module
+ROOT_DIR = str(Path(__file__).resolve().parents[1])
 MODEL_FILE = os.path.join(ROOT_DIR, "models", FLAGS.model + ".py")
 LOG_DIR = FLAGS.log_dir
 if not os.path.exists(LOG_DIR):
@@ -68,7 +60,7 @@ NUM_CLASSES = 50
 DATA_PATH = os.path.join(
     ROOT_DIR, "data", "shapenetcore_partanno_segmentation_benchmark_v0_normal"
 )
-TEST_DATASET = part_dataset_all_normal.PartNormalDataset(
+TEST_DATASET = PartNormalDataset(
     root=DATA_PATH, npoints=NUM_POINT, classification=False, split="test"
 )
 
@@ -218,7 +210,7 @@ def eval_one_epoch(sess, ops):
             shape_ious[cat].append(np.mean(part_ious))
 
     all_shape_ious = []
-    for cat in shape_ious.keys():
+    for cat in shape_ious:
         for iou in shape_ious[cat]:
             all_shape_ious.append(iou)
         shape_ious[cat] = np.mean(shape_ious[cat])
@@ -233,7 +225,7 @@ def eval_one_epoch(sess, ops):
         % (
             np.mean(
                 np.array(total_correct_class)
-                / np.array(total_seen_class, dtype=np.float)
+                / np.array(total_seen_class, dtype=float)
             )
         )
     )

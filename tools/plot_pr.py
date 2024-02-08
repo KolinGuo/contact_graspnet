@@ -1,18 +1,15 @@
+import copy
 import os
 import sys
 
 import glob2
 import matplotlib.pyplot as plt
 import numpy as np
-import yaml
-from dict_diff import findDiff
-
-sys.path.append("/home/msundermeyer/ngc_ws/6dof-graspnet/contact_graspnet")
-import copy
-
 import utilities
-from color import color
+from dict_diff import findDiff
 from scipy import spatial
+
+from .color import color
 
 
 def metric_coverage_success_rate(
@@ -53,7 +50,7 @@ def metric_coverage_success_rate(
     visited = set()
     tot_num_gt_grasps = 0
     for i in range(num_scenes):
-        print("building kd-tree {}/{}".format(i + 1, len(grasps_list[:num_scenes])))
+        print(f"building kd-tree {i + 1}/{len(grasps_list[:num_scenes])}")
         gt_grasps = np.asarray(gt_grasps_list[i]).copy()
         all_trees.append(spatial.KDTree(gt_grasps[:, :3, 3]))
         tot_num_gt_grasps += gt_grasps.shape[0]
@@ -126,7 +123,7 @@ def metric_coverage_success_rate(
         import matplotlib.pyplot as plt
 
         plt.plot(recalls, precisions)
-        plt.title("Simulator Precision-Coverage Curves auc = {0:02f}".format(auc))
+        plt.title(f"Simulator Precision-Coverage Curves auc = {auc:02f}")
         plt.xlabel("Coverage")
         plt.ylabel("Precision")
         plt.xlim([0, 0.6])
@@ -160,9 +157,7 @@ name_dict = {}
 gt_grasps = []
 for p in range(100):
     y = np.load(
-        "/home/msundermeyer/datasets/visibility_filtered_gt_grasp/{}_filtered_gt_grasps.npz".format(
-            p
-        ),
+        f"/home/msundermeyer/datasets/visibility_filtered_gt_grasp/{p}_filtered_gt_grasps.npz",
         allow_pickle=True,
     )
     gt_grasps.append(y["gt_grasp_scene_trafos"])
@@ -242,7 +237,7 @@ for abc in pr_data:
         aucs_01[name] = np.dot(deltas, precisions_01[:-1]) * 10
 
         # plt.plot(a['recalls'], a['precisions'])
-        legends.append(d.split("/")[1] + " - " + name + " (auc: {:.4f})".format(auc))
+        legends.append(d.split("/")[1] + " - " + name + f" (auc: {auc:.4f})")
         # legends.append(d.split('/')[1] + ' - ' + name + ' (auc: {:.4f})'.format(a['auc']) + ' (auc01: {:.4f})'.format(aucs_01[name]))
     else:
         legends.append(base_dir)
@@ -263,14 +258,14 @@ for k, v in all_changed_keys.items():
         for k1 in keys:
             cfg_tmp = cfg_tmp[k1]
 
-        string = "{:<30} {:<10}".format(k[:-9], cfg_tmp[k[:-9]])
+        string = f"{k[:-9]:<30} {cfg_tmp[k[:-9]]:<10}"
         for d in all_diff_dicts:
             if k in all_diff_dicts[d]:
                 value = all_diff_dicts[d][k[:-9]]
-                string += color.GREEN + "{:<10}".format(value) + color.END
+                string += color.GREEN + f"{value:<10}" + color.END
             else:
                 value = cfg_tmp[k[:-9]]
-                string += "{:<10}".format(value)
+                string += f"{value:<10}"
 
         print(string)
 
