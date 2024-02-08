@@ -1,14 +1,10 @@
 """Visualize part segmentation"""
 
-import os
-import sys
-
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append("/home/rqi/Projects/toolkits/visualization")
 import numpy as np
 import tensorflow as tf
-from show3d_balls import showpoints
-from tf_interpolate import three_interpolate, three_nn
+
+from ...utils.show3d_balls import showpoints
+from .tf_interpolate import three_interpolate, three_nn
 
 pts2 = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0], [1, 1, 0]]).astype("float32")
 xyz1 = np.random.random((100, 3)).astype("float32")

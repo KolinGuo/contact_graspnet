@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 try:
     import tensorflow.compat.v1 as tf
 
@@ -8,12 +6,10 @@ except:
     import tensorflow as tf
 
 import os
-import sys
 
 from tensorflow.python.framework import ops
 
 BASE_DIR = os.path.dirname(__file__)
-sys.path.append(BASE_DIR)
 interpolate_module = tf.load_op_library(os.path.join(BASE_DIR, "tf_interpolate_so.so"))
 
 
