@@ -17,7 +17,7 @@ REGISTER_OP("ThreeNN")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         c->set_output(0, c->input(0));
         c->set_output(1, c->input(0));
-        return Status::OK();
+        return Status();
     });
 REGISTER_OP("ThreeInterpolate")
     .Input("points: float32")
@@ -32,7 +32,7 @@ REGISTER_OP("ThreeInterpolate")
         // (b,n,c)
         ::tensorflow::shape_inference::ShapeHandle output = c->MakeShape({c->Dim(dims1, 0), c->Dim(dims2, 1), c->Dim(dims1, 2)});
         c->set_output(0, output);
-        return Status::OK();
+        return Status();
     });
 REGISTER_OP("ThreeInterpolateGrad")
     .Input("points: float32")
@@ -42,7 +42,7 @@ REGISTER_OP("ThreeInterpolateGrad")
     .Output("grad_points: float32")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         c->set_output(0, c->input(0));
-        return Status::OK();
+        return Status();
     });
 
 float randomf(){

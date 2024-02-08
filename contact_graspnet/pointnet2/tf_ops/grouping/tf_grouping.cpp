@@ -26,7 +26,7 @@ REGISTER_OP("QueryBallPoint")
         c->set_output(0, output1);
         ::tensorflow::shape_inference::ShapeHandle output2 = c->MakeShape({c->Dim(dims2, 0), c->Dim(dims2, 1)});
         c->set_output(1, output2);
-        return Status::OK();
+        return Status();
     });
 REGISTER_OP("SelectionSort")
     .Attr("k: int")
@@ -36,7 +36,7 @@ REGISTER_OP("SelectionSort")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         c->set_output(0, c->input(0));
         c->set_output(1, c->input(0));
-        return Status::OK();
+        return Status();
     });
 REGISTER_OP("GroupPoint")
     .Input("points: float32")
@@ -50,7 +50,7 @@ REGISTER_OP("GroupPoint")
         // batch_size * npoints * nsample * channels
         ::tensorflow::shape_inference::ShapeHandle output = c->MakeShape({c->Dim(dims2, 0), c->Dim(dims2, 1), c->Dim(dims2, 2), c->Dim(dims1, 2)});
         c->set_output(0, output);
-        return Status::OK();
+        return Status();
     });
 REGISTER_OP("GroupPointGrad")
     .Input("points: float32")
@@ -59,7 +59,7 @@ REGISTER_OP("GroupPointGrad")
     .Output("grad_points: float32")
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         c->set_output(0, c->input(0));
-        return Status::OK();
+        return Status();
     });
 
 

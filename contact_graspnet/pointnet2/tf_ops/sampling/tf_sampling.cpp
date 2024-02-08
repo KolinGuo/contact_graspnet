@@ -23,7 +23,7 @@ REGISTER_OP("ProbSample")
     // batch_size * npoints
     ::tensorflow::shape_inference::ShapeHandle output = c->MakeShape({c->Dim(dims2, 0), c->Dim(dims2, 1)});
     c->set_output(0, output);
-    return Status::OK();
+    return Status();
   });
 REGISTER_OP("FarthestPointSample")
   .Attr("npoint: int")
@@ -36,7 +36,7 @@ REGISTER_OP("FarthestPointSample")
     TF_RETURN_IF_ERROR(c->GetAttr("npoint", &npoint));
     ::tensorflow::shape_inference::ShapeHandle output = c->MakeShape({c->Dim(dims1, 0), npoint});
     c->set_output(0, output);
-    return Status::OK();
+    return Status();
   });
 REGISTER_OP("GatherPoint")
   .Input("inp: float32")
@@ -50,7 +50,7 @@ REGISTER_OP("GatherPoint")
     // batch_size * npoints * 3
     ::tensorflow::shape_inference::ShapeHandle output = c->MakeShape({c->Dim(dims1, 0), c->Dim(dims2, 1), c->Dim(dims1, 2)});
     c->set_output(0, output);
-    return Status::OK();
+    return Status();
   });
 REGISTER_OP("GatherPointGrad")
   .Input("inp: float32")
@@ -59,7 +59,7 @@ REGISTER_OP("GatherPointGrad")
   .Output("inp_g: float32")
   .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
     c->set_output(0, c->input(0));
-    return Status::OK();
+    return Status();
   });
 
 void probsampleLauncher(int b,int n,int m,const float * inp_p,const float * inp_r,float * temp,int * out);
@@ -176,4 +176,3 @@ class GatherPointGradGpuOp: public OpKernel{
     }
 };
 REGISTER_KERNEL_BUILDER(Name("GatherPointGrad").Device(DEVICE_GPU),GatherPointGradGpuOp);
-

@@ -4,6 +4,7 @@ try:
     tf.disable_eager_execution()
 except:
     import tensorflow as tf
+
 import os
 
 from tensorflow.python.framework import ops

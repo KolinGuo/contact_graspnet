@@ -6,6 +6,7 @@ try:
     tf.disable_eager_execution()
 except:
     import tensorflow as tf
+
 import numpy as np
 from tf_grouping import group_point, query_ball_point
 
