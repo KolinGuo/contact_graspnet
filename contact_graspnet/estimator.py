@@ -13,7 +13,7 @@ from contact_graspnet import config_utils
 from contact_graspnet.contact_grasp_estimator import GraspEstimator
 from contact_graspnet.data import depth2xyz
 from contact_graspnet.mesh_utils import XArmGripper
-from grounded_sam_track.utils.timer import timer
+from contact_graspnet.utils import timer
 
 tf.disable_eager_execution()
 for gpu in tf.config.experimental.list_physical_devices("GPU"):
