@@ -400,6 +400,10 @@ def load_available_input_data(p, K=None):
             pc_full = np.array(data["xyz"]).reshape(-1, 3)
             if "xyz_color" in keys:
                 pc_colors = data["xyz_color"]
+            if K is None:
+                cam_K = None
+            if "seg" in keys:
+                segmap = data["seg"]
     elif ".png" in p:
         if os.path.exists(p.replace("depth", "label")):
             # graspnet data
