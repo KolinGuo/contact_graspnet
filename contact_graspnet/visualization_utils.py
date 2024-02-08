@@ -157,6 +157,7 @@ def visualize_grasps(
                     np.eye(4),
                     color=colors2[k],
                     gripper_openings=[gripper_openings_k[np.argmax(scores[k])]],
+                    show_gripper_mesh=True,
                     tube_radius=0.0025,
                 )
             else:
@@ -166,6 +167,14 @@ def visualize_grasps(
                     np.eye(4),
                     colors=colors3,
                     gripper_openings=gripper_openings_k,
+                )
+                draw_grasps(
+                    [pred_grasps_cam[k][np.argmax(scores[k])]],
+                    np.eye(4),
+                    color=colors2[k],
+                    gripper_openings=[gripper_openings_k[np.argmax(scores[k])]],
+                    show_gripper_mesh=True,
+                    tube_radius=0.0025,
                 )
     mlab.show()
 
