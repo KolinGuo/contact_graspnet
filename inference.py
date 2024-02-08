@@ -1,10 +1,7 @@
 import argparse
 import glob
 import os
-import sys
-import time
 
-import cv2
 import numpy as np
 import tensorflow.compat.v1 as tf
 
@@ -12,12 +9,15 @@ tf.disable_eager_execution()
 physical_devices = tf.config.experimental.list_physical_devices("GPU")
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(BASE_DIR))
-import config_utils
-from contact_grasp_estimator import GraspEstimator
-from data import depth2pc, load_available_input_data, regularize_pc_point_count
-from visualization_utils import show_image, visualize_grasps
+from contact_graspnet import config_utils
+from contact_graspnet.contact_grasp_estimator import GraspEstimator
+from contact_graspnet.data import (
+    depth2pc,
+    load_available_input_data,
+    regularize_pc_point_count,
+)
+
+# from visualization_utils import visualize_grasps, show_image
 
 
 def inference(
@@ -79,25 +79,45 @@ def inference(
                 "Need segmentation map to extract local regions or filter grasps"
             )
 
-        if pc_full is None:
+        if pc_full is None:  # Input data is rgbd
             print("Converting depth to point cloud(s)...")
             pc_full, pc_segments, pc_colors = grasp_estimator.extract_point_clouds(
                 depth,
                 cam_K,
                 segmap=segmap,
                 rgb=rgb,
+                segmap_id=segmap_id,
                 skip_border_objects=skip_border_objects,
                 z_range=z_range,
             )
+        else:  # Input data is pointcloud
+            print("Extracting segments from to point cloud(s)...")
+            # Threshold distance
+            z_range_mask = (pc_full[:, 2] < z_range[1]) & (pc_full[:, 2] > z_range[0])
+            if pc_colors is not None:
+                pc_colors = pc_colors[z_range_mask]
+            pc_full = pc_full[z_range_mask]
+            segmap = segmap[z_range_mask]
+
+            # Extract instance point clouds from segmap and depth map
+            pc_segments = {}
+            if segmap is not None:
+                obj_instances = (
+                    [segmap_id] if segmap_id else np.unique(segmap[segmap > 0])
+                )
+                for i in obj_instances:
+                    pc_segments[i] = pc_full[segmap == i]
 
         print("Generating Grasps...")
-        pred_grasps_cam, scores, contact_pts, _ = grasp_estimator.predict_scene_grasps(
-            sess,
-            pc_full,
-            pc_segments=pc_segments,
-            local_regions=local_regions,
-            filter_grasps=filter_grasps,
-            forward_passes=forward_passes,
+        pred_grasps_cam, scores, contact_pts, gripper_openings = (
+            grasp_estimator.predict_scene_grasps(
+                sess,
+                pc_full,
+                pc_segments=pc_segments,
+                local_regions=local_regions,
+                filter_grasps=filter_grasps,
+                forward_passes=forward_passes,
+            )
         )
 
         # Save results
@@ -108,13 +128,13 @@ def inference(
             pred_grasps_cam=pred_grasps_cam,
             scores=scores,
             contact_pts=contact_pts,
+            gripper_openings=gripper_openings,
         )
 
         # Visualize results
-        show_image(rgb, segmap)
-        visualize_grasps(
-            pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors
-        )
+        # if rgb is not None:
+        #    show_image(rgb, segmap)
+        # visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
 
     if not glob.glob(input_paths):
         print("No files found: ", input_paths)
@@ -172,7 +192,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--segmap_id",
         type=int,
-        default=0,
+        default=None,
         help="Only return grasps of the given object id",
     )
     parser.add_argument(
