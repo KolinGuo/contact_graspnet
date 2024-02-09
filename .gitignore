@@ -1,5 +1,6 @@
 results
-checkpoints/*
+contact_graspnet/checkpoints/*
+test_data/*
 *.npz
 **/*.pyc
 **/__pycache__
