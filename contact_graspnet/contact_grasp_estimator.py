@@ -359,7 +359,11 @@ class GraspEstimator:
                 )
         else:
             pc_full = regularize_pc_point_count(
-                pc_full, self._contact_grasp_cfg["DATA"]["raw_num_points"]
+                pc_full,
+                self._contact_grasp_cfg["DATA"]["raw_num_points"],
+                use_farthest_point=self._contact_grasp_cfg["DATA"][
+                    "use_farthest_point"
+                ],
             )
             pred_grasps_cam[-1], scores[-1], contact_pts[-1], gripper_openings[-1] = (
                 self.predict_grasps(
