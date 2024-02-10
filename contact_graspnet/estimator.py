@@ -135,6 +135,7 @@ class CGNGraspEstimator:
         K: Optional[np.ndarray] = None,
         pcd: Optional[np.ndarray] = None,
         seg: Optional[np.ndarray] = None,
+        *,
         local_regions: bool = True,
         filter_grasps: bool = True,
         seg_id: Optional[int] = None,
