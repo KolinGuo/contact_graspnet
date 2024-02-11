@@ -266,11 +266,11 @@ def depth2pc(depth, K, rgb=None):
     return (pc, rgb)
 
 
-def depth2xyz(depth_image, intrinsics, depth_scale=1000.0) -> np.ndarray:
+def depth2xyz(depth_image, intrinsics) -> np.ndarray:
     """Use camera intrinsics to convert depth_image to xyz_image
-    :param depth_image: [H, W] or [H, W, 1] np.uint16 np.ndarray
-    :param intrinsics: [3, 3] camera intrinsics matrix
-    :return xyz_image: [H, W, 3] float np.ndarray
+    :param depth_image: [H, W] or [H, W, 1] np.floating/np.uint16 np.ndarray
+    :param intrinsics: [3, 3] camera intrinsics matrix or [fx, fy, cx, cy]
+    :return xyz_image: [H, W, 3] np.floating np.ndarray
     """
     if intrinsics.size == 4:
         fx, fy, cx, cy = intrinsics
@@ -287,7 +287,12 @@ def depth2xyz(depth_image, intrinsics, depth_scale=1000.0) -> np.ndarray:
     height, width = depth_image.shape[:2]
     uu, vv = np.meshgrid(np.arange(width), np.arange(height))
 
-    z = depth_image / depth_scale
+    if np.issubdtype(depth_image.dtype, np.uint16):
+        z = depth_image / 1000.0
+    elif np.issubdtype(depth_image.dtype, np.floating):
+        z = depth_image
+    else:
+        raise TypeError(f"Unsupported depth image dtype: {depth_image.dtype}")
     x = (uu - cx) * z / fx
     y = (vv - cy) * z / fy
     xyz_image = np.stack([x, y, z], axis=-1)
