@@ -1,4 +1,5 @@
 import importlib
+import logging
 import sys
 
 import numpy as np
@@ -168,7 +169,14 @@ class GraspEstimator:
 
         return filtered_grasp_idcs
 
-    def extract_3d_cam_boxes(self, full_pc, pc_segments, min_size=0.3, max_size=0.6):
+    def extract_3d_cam_boxes(
+        self,
+        full_pc,
+        pc_segments,
+        min_size=0.3,
+        max_size=0.6,
+        logger=logging.getLogger(__name__),
+    ):
         """
         Extract 3D bounding boxes around the pc_segments for inference to create
         dense and zoomed-in predictions but still take context into account.
@@ -197,7 +205,7 @@ class GraspEstimator:
                 size = np.minimum(
                     np.maximum(np.max(obj_extent) * 2, min_size), max_size
                 )
-                print("Extracted Region Cube Size: ", size)
+                logger.info("Extracted Region Cube Size: %d", size)
                 partial_pc = full_pc[
                     np.all(full_pc > (obj_center - size / 2), axis=1)
                     & np.all(full_pc < (obj_center + size / 2), axis=1)
@@ -325,6 +333,7 @@ class GraspEstimator:
         local_regions=False,
         filter_grasps=False,
         forward_passes=1,
+        logger=logging.getLogger(__name__),
     ):
         """
         Predict num_point grasps on a full point cloud or in local box regions around point cloud segments.
@@ -347,7 +356,10 @@ class GraspEstimator:
 
         # Predict grasps in local regions or full pc
         if local_regions:
-            pc_regions, _ = self.extract_3d_cam_boxes(pc_full, pc_segments)
+            logger.info("Cropping 3D local regions around objects")
+            pc_regions, _ = self.extract_3d_cam_boxes(
+                pc_full, pc_segments, logger=logger
+            )
             for k, pc_region in pc_regions.items():
                 pred_grasps_cam[k], scores[k], contact_pts[k], gripper_openings[k] = (
                     self.predict_grasps(
@@ -356,6 +368,9 @@ class GraspEstimator:
                         convert_cam_coords=True,
                         forward_passes=forward_passes,
                     )
+                )
+                logger.info(
+                    "Generated %d grasps for obj seg_id=%d", len(pred_grasps_cam[k]), k
                 )
         else:
             pc_full = regularize_pc_point_count(
@@ -373,10 +388,11 @@ class GraspEstimator:
                     forward_passes=forward_passes,
                 )
             )
-            print(f"Generated {len(pred_grasps_cam[-1])} grasps")
+            logger.info("Generated %d grasps", len(pred_grasps_cam[-1]))
 
         # Filter grasp contacts to lie within object segment
         if filter_grasps:
+            logger.info("Filtering grasp contacts to lie within object segment")
             segment_keys = contact_pts.keys() if local_regions else pc_segments.keys()
             for k in segment_keys:
                 j = k if local_regions else -1
@@ -392,18 +408,24 @@ class GraspEstimator:
                     contact_pts[k] = contact_pts[j][segment_idcs]
                     try:
                         gripper_openings[k] = gripper_openings[j][segment_idcs]
-                    except:
-                        print(f"skipped gripper openings {gripper_openings[j]}")
+                    except Exception as e:
+                        logger.error("Exception caught: %s", e)
+                        logger.error(
+                            "Skipped gripper openings: %s", gripper_openings[j]
+                        )
 
-                    if local_regions and np.any(pred_grasps_cam[k]):
-                        print(
-                            f"Generated {len(pred_grasps_cam[k])} grasps for object {k}"
-                        )
+                    logger.info(
+                        "Resulted %d grasps for obj seg_id=%d",
+                        len(pred_grasps_cam[k]),
+                        k,
+                    )
                 else:
-                    print(
-                        "skipping obj {} since  np.any(pc_segments[k]) {} and np.any(contact_pts[j]) is {}".format(
-                            k, np.any(pc_segments[k]), np.any(contact_pts[j])
-                        )
+                    logger.warning(
+                        "Skipping obj seg_id=%d: "
+                        "np.any(pc_segment)=%r, np.any(contact_pt)=%r",
+                        k,
+                        np.any(pc_segments[k]),
+                        np.any(contact_pts[j]),
                     )
 
             if not local_regions:
