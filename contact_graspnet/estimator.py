@@ -5,14 +5,16 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import open3d.visualization.gui as gui  # type: ignore
+import tensorflow.compat.v1 as tf  # type: ignore
 from real_robot.utils.logger import get_logger
-from real_robot.utils.visualization import O3DGUIVisualizer
+from real_robot.utils.visualization import Visualizer, visualizer
+from real_robot.utils.visualization.utils import _palette
 
 from contact_graspnet import config_utils
 from contact_graspnet.contact_grasp_estimator import GraspEstimator
 from contact_graspnet.data import depth2xyz
-from contact_graspnet.mesh_utils import XArmGripper
+from contact_graspnet.gripper import create_gripper
 from contact_graspnet.utils import timer
 
 tf.disable_eager_execution()
@@ -39,6 +41,8 @@ class CGNGraspEstimator:
         "hor_sigma_0025": "1r5leQmnbJP2kLOB-I4wX_jdZuW5L_MTZ",
     }
 
+    SUPPORTED_GRIPPER_TYPE = ("panda", "xarm")
+
     logger = get_logger("CGN")
 
     def __init__(
@@ -47,7 +51,7 @@ class CGNGraspEstimator:
         forward_passes: int = 1,
         arg_configs: Optional[list[str]] = None,
         save_dir: str = "results",
-        gripper_type: str = "xarm",
+        gripper_type: str = "panda",
         device: str = "cuda",
     ):
         """
@@ -75,11 +79,17 @@ class CGNGraspEstimator:
         # Load CGN model
         self.load_cgn_model()
 
+        # Create gripper for pose conversion and visualization
         self.gripper_type = gripper_type
-        if self.gripper_type == "xarm":
-            self.gripper = XArmGripper(
-                Path(__file__).resolve().parent / "contact_graspnet"
+        if gripper_type not in self.SUPPORTED_GRIPPER_TYPE:
+            self.logger.critical(
+                "Gripper type should be: %s", self.SUPPORTED_GRIPPER_TYPE
             )
+            raise ValueError(f"Unknown gripper type: {gripper_type}")
+        self.gripper = create_gripper(gripper_type)
+
+        # Cache observation input for visualization
+        self.obs_dict = {}
 
     def download_model_checkpoint(self, model_variant: str) -> None:
         import gdown
@@ -135,7 +145,7 @@ class CGNGraspEstimator:
     ) -> tuple[np.ndarray, ...] | tuple[dict[int, np.ndarray], ...]:
         """Predict 6-DoF grasps given depth or pcd input
 
-        :param depth: [H, W] or [H, W, 1] np.floating np.ndarray
+        :param depth: [H, W] or [H, W, 1] np.floating/np.uint16 np.ndarray
         :param K: [3, 3] camera intrinsics matrix or [fx, fy, cx, cy]
         :param pcd: [N, 3] np.floating np.ndarray
         :param seg: bool/np.uint8 np.ndarray [H, W] for depth input [N,] for pcd input
@@ -160,43 +170,68 @@ class CGNGraspEstimator:
                         [n_grasps,] np.floating np.ndarray
         """
         assert (depth is None) ^ (pcd is None), "Need one of depth/pcd input"
-        if seg is None and (local_regions or filter_grasps):
+        if seg is None and (local_regions or filter_grasps or skip_border_objects):
             raise ValueError(
-                "Need segmentation map to extract local regions or filter grasps"
+                "Need segmentation map to extract local regions, filter grasps "
+                "or skip border objects"
+            )
+        if local_regions and not filter_grasps:
+            self.logger.warning(
+                "When cropping local_regions, it's better to also filter_grasps "
+                "based on segmentation"
             )
 
+        self.obs_dict = {}  # Empty input observation cache for visualization
         if depth is not None:  # depth input
             assert K is not None, "Need camera intrinsics for depth input"
-            xyz_image = depth2xyz(depth, K, depth_scale=1.0)
+            xyz_image = depth2xyz(depth, K)
             pcd = xyz_image.reshape(-1, 3)
 
             # Filter out border objects (set mask to background id=0)
-            if seg is not None and skip_border_objects:
-                for i in np.unique(seg[seg > 0]):
+            if skip_border_objects:
+                for i in np.unique(seg[seg > 0]):  # type: ignore
                     obj_mask = seg == i
                     obj_y, obj_x = np.where(obj_mask)
                     if (
                         np.any(obj_x < margin_px)
-                        or np.any(obj_x > seg.shape[1] - margin_px)
+                        or np.any(obj_x > seg.shape[1] - margin_px)  # type: ignore
                         or np.any(obj_y < margin_px)
-                        or np.any(obj_y > seg.shape[0] - margin_px)
+                        or np.any(obj_y > seg.shape[0] - margin_px)  # type: ignore
                     ):
-                        print(f"object {i} not entirely in image bounds, skipping")
-                        seg[obj_mask] = 0
+                        self.logger.info(
+                            "Skipping object seg_id=%d: not entirely in image bounds", i
+                        )
+                        seg[obj_mask] = 0  # set as background id # type: ignore
+            self.obs_dict["depth_image"] = depth
+            self.obs_dict["K"] = K
+            self.obs_dict["xyz_image"] = xyz_image
+            self.obs_dict["seg_mask"] = seg
+        else:
+            self.obs_dict["input_points"] = pcd
 
-        # Threshold distance
-        z_range_mask = (pcd[:, 2] < z_clip_range[1]) & (pcd[:, 2] > z_clip_range[0])  # type: ignore
+        # Filter z range for outlier points
+        z_range_mask = (pcd[:, 2] >= z_clip_range[0]) & (pcd[:, 2] <= z_clip_range[1])  # type: ignore
         pcd = pcd[z_range_mask]  # type: ignore
+        self.logger.info("After z_range filtering, %d points remain", pcd.shape[0])
 
         # Extract instance point clouds from segmap and depth map
         pc_segments = {}
         if seg is not None:
+            self.logger.info("Predict on segmented pointcloud")
+
             seg = seg.reshape(-1)[z_range_mask]
-            if seg.dtype == bool:  # when given binary mask
+            if seg.dtype == bool:  # when given binary mask, return grasps for True
                 seg_id = True
             obj_instances = [seg_id] if seg_id is not None else np.unique(seg[seg > 0])
             for i in obj_instances:
                 pc_segments[i] = pcd[seg == i]
+                self.logger.info("Segment id=%d: %d points", i, pc_segments[i].shape[0])
+        else:
+            self.logger.info("Predict on full pointcloud")
+            self.logger.info(
+                "This will oversample/downsample to %d points",
+                self.grasp_estimator._contact_grasp_cfg["DATA"]["raw_num_points"],
+            )
 
         pred_grasps_cam, scores, contact_pts, gripper_openings = (
             self.grasp_estimator.predict_scene_grasps(
@@ -206,24 +241,24 @@ class CGNGraspEstimator:
                 local_regions=local_regions,
                 filter_grasps=filter_grasps,
                 forward_passes=self.forward_passes,
+                logger=self.logger,
             )
         )
 
-        if self.gripper_type == "xarm":
-            pred_grasps_cam, q_vals = self.gripper.convert_grasp_poses_from_panda(
-                pred_grasps_cam, gripper_openings
-            )
-        else:
-            q_vals = {
-                seg_id: openings / 2 for seg_id, openings in gripper_openings.items()
-            }
+        self.logger.info("Converting q_vals for gripper type: %s", self.gripper_type)
+        pred_grasps_cam, q_vals = self.gripper.convert_grasp_poses(
+            pred_grasps_cam, gripper_openings
+        )
 
         # Save results
         if save:
             self.save_dir.mkdir(parents=True, exist_ok=True)
 
+            save_path = self.save_dir / "predictions.npz"
+            self.logger.info("Saving results to: %s", save_path)
+
             np.savez(
-                self.save_dir / "predictions.npz",
+                save_path,
                 pred_grasps_cam=pred_grasps_cam,  # type: ignore
                 scores=scores,  # type: ignore
                 contact_pts=contact_pts,  # type: ignore
@@ -236,20 +271,21 @@ class CGNGraspEstimator:
             contact_pts = contact_pts[seg_id]
             q_vals = q_vals[seg_id]
 
-        return pred_grasps_cam, scores, contact_pts, q_vals
+        return pred_grasps_cam, scores, contact_pts, q_vals  # type: ignore
 
     def visualize_grasps(
         self,
-        vis: O3DGUIVisualizer,
         pred_grasps_cam: np.ndarray | dict[int, np.ndarray],
         scores: np.ndarray | dict[int, np.ndarray],
         q_vals: np.ndarray | dict[int, np.ndarray],
-        cam_pose: Optional[np.ndarray] = None,
+        *,
+        cam_pose: np.ndarray = np.eye(4),
+        rgb_image: Optional[np.ndarray] = None,
         group_prefix="CGN",
-    ) -> None:
-        """Visualize grasps using O3DGUIVisualizer
+        vis: Optional[Visualizer] = None,
+    ) -> Visualizer:
+        """Visualize grasps using Visualizer
 
-        :param vis: O3DGUIVisualizer instance
         :param pred_grasps_cam: predicted grasp poses in camera frame.
                                 [n_grasps, 4, 4] np.floating np.ndarray
         :param scores: predicted grasp pose confidence scores.
@@ -257,14 +293,89 @@ class CGNGraspEstimator:
         :param q_vals: predicted gripper joint values
                        [n_grasps,] np.floating np.ndarray
         :param cam_pose: camera pose in world frame, [4, 4] np.floating np.ndarray
+        :param rgb_image: RGB image for visualization, [H, W, 3] np.uint8 np.ndarray
         :param group_prefix: prefix for visualization geometry name
+        :param vis: Visualizer instance
+        :return: Visualizer instance
         """
-        if cam_pose is None:
-            cam_pose = np.eye(4)
+        if vis is None:
+            vis = Visualizer()
+        o3d_vis = vis.o3dvis
 
-        self.gripper.visualize_grasps(
-            vis, pred_grasps_cam, scores, q_vals, cam_pose, group_prefix
+        if rgb_image is not None:
+            self.obs_dict["color_image"] = rgb_image
+        # Draw camera lineset and frame
+        if (depth_image := self.obs_dict.get("depth_image")) is not None:
+            o3d_vis.add_camera(
+                f"{group_prefix}_camera",
+                *depth_image.shape[1::-1],
+                self.obs_dict.pop("K"),  # type: ignore
+                cam_pose,  # type: ignore
+                fmt="CV",
+            )
+        # Show depth_image / color_image / segmentation masks / point cloud
+        vis.show_obs({
+            f"{group_prefix}/{k}": v for k, v in sorted(self.obs_dict.items())
+        })
+
+        if isinstance(pred_grasps_cam, np.ndarray):
+            assert isinstance(scores, np.ndarray)
+            assert isinstance(q_vals, np.ndarray)
+            pred_grasps_cam = {1: pred_grasps_cam}
+            scores = {1: scores}
+            q_vals = {1: q_vals}
+
+        # Show predicted grasp pose using gripper mesh and lineset
+        for seg_id, _pred_grasps_cam in pred_grasps_cam.items():
+            if len(_pred_grasps_cam) == 0:
+                self.logger.warning("No predicted grasps for seg_id=%d", seg_id)
+                continue
+
+            _q_vals = q_vals[seg_id]
+            max_score_idx = scores[seg_id].argmax()
+
+            pred_grasps_world = cam_pose @ _pred_grasps_cam
+
+            seg_id = int(seg_id)
+            o3d_vis.add_geometry(
+                f"{group_prefix}/obj_{seg_id}/mesh",
+                self.gripper.get_mesh(
+                    _q_vals[max_score_idx], pred_grasps_world[max_score_idx]
+                ),
+            )
+
+            control_points = self.gripper.get_control_points(_q_vals, pred_grasps_world)
+            control_points_geometry_name = f"{group_prefix}/obj_{seg_id}/pts"
+            o3d_vis.add_geometry(
+                control_points_geometry_name,
+                self.gripper.get_control_points_lineset(control_points),
+                show=False,
+            )
+
+            # Apply the same color to control points lineset as the mask segmentation
+            node = o3d_vis.geometries[control_points_geometry_name]
+            node.mat_color = gui.Color(
+                *np.asarray(_palette[seg_id * 3 : (seg_id + 1) * 3]) / 255.0, 1.0
+            )
+            current_selected_item = o3d_vis._geometry_tree.selected_item
+            o3d_vis._on_geometry_tree(node.id)
+            # Update geometry material using o3d_vis.settings.material
+            o3d_vis._scene.scene.modify_geometry_material(
+                node.name, o3d_vis.settings.material
+            )
+            o3d_vis._on_geometry_tree(current_selected_item)
+
+        # Set o3d_vis focused camera
+        if "depth_image" in self.obs_dict:
+            o3d_vis.set_focused_camera(f"{group_prefix}_camera")
+
+        self.logger.info(
+            "The Visualizer will be paused. Press the 'Single Step' button "
+            "on the top right corner of the Open3D window to continue."
         )
+        visualizer.pause_render = True  # Pause the Visualizer
+        vis.render()  # render once
+        return vis
 
 
 if __name__ == "__main__":

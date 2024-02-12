@@ -178,24 +178,39 @@ class PandaGripper(Gripper):
         self.hand = trimesh.util.concatenate([self.fingers, self.base])
 
         # For visualization with Open3D
-        self.hand = o3d.io.read_triangle_model(str(mesh_dir / "hand.stl"))
+        self.hand_o3d = o3d.io.read_triangle_model(str(mesh_dir / "hand.glb"))
+        # self.finger_l_o3d = o3d.io.read_triangle_model(str(mesh_dir / "finger.glb"))
+        # self.finger_r_o3d = o3d.io.read_triangle_model(str(mesh_dir / "finger.glb"))
+        # finger_pts are the 4 corners of the square finger contact pad
+        # See franka_description/meshes/visual/finger.dae
+        # self.finger_l_pts = np.array([
+        #     [0.008763, 0.000011, 0.036266],
+        #     [-0.008772, 0.000011, 0.036266],
+        #     [-0.008772, 0.000011, 0.053746],
+        #     [0.008763, 0.000011, 0.053746],
+        # ])
+        # self.finger_r_pts = self.finger_l_pts * [-1, -1, 1]  # invert xy coords
+        # --- After conver hull --- #
+        # self.hand_o3d = o3d.io.read_triangle_model(str(mesh_dir / "hand.stl"))
         self.finger_l_o3d = o3d.io.read_triangle_model(str(mesh_dir / "finger.stl"))
         self.finger_r_o3d = o3d.io.read_triangle_model(str(mesh_dir / "finger.stl"))
+        # See franka_description/meshes/collision/finger.stl (after convex hull)
+        self.finger_l_pts = np.array([
+            [0.008693, -0.000133, 0.000147],
+            [-0.008623, -0.000133, 0.000147],
+            [-0.008623, -0.000133, 0.053725],
+            [0.008693, -0.000133, 0.053725],
+        ])
+        self.finger_r_pts = self.finger_l_pts.copy()
         T_gripper_finger_l = np.eye(4)
-        T_gripper_finger_l[:3, :3] = euler2mat(0, 0, np.pi)
-        T_gripper_finger_l[:3, -1] = [0, 0, 0.0584]
+        T_gripper_finger_l[:3, -1] = [0, 0, 0.0584]  # panda_finger_joint1
+        self.finger_l_pts = transform_points(self.finger_l_pts, T_gripper_finger_l)
         self.finger_l_o3d = transform_geometry(self.finger_l_o3d, T_gripper_finger_l)
         T_gripper_finger_r = np.eye(4)
-        T_gripper_finger_r[:3, -1] = [0, 0, 0.0584]
+        T_gripper_finger_r[:3, :3] = euler2mat(0, 0, np.pi)  # invert xy coords
+        T_gripper_finger_r[:3, -1] = [0, 0, 0.0584]  # panda_finger_joint2
+        self.finger_r_pts = transform_points(self.finger_r_pts, T_gripper_finger_r)
         self.finger_r_o3d = transform_geometry(self.finger_r_o3d, T_gripper_finger_r)
-        # Control_points
-        panda_pts = np.load(self.control_pts_dir / "panda.npy")[:, :3]
-        panda_pts[:2, 2] = 0.0584  # actual finger depth (not convex hull)
-        # Convert gripper pose from baseline +x to baseline +y
-        T_gripper_delta = np.eye(4)
-        T_gripper_delta[:3, :3] = euler2mat(0, 0, np.pi / 2)
-        self.finger_l_ctl_pts = transform_points(panda_pts[[0, -2], :], T_gripper_delta)
-        self.finger_r_ctl_pts = transform_points(panda_pts[[1, -1], :], T_gripper_delta)
         # Finger joint axes (frame orientation is after self.convert_grasp_poses())
         self.finger_l_joint_axis = np.array([0, 1.0, 0])
         self.finger_r_joint_axis = np.array([0, -1.0, 0])
@@ -381,7 +396,7 @@ class PandaGripper(Gripper):
         T[:3, -1] = self.finger_r_joint_axis * q
         finger_r = transform_geometry(self.finger_r_o3d, T)
 
-        gripper = merge_geometries([self.hand, finger_l, finger_r])
+        gripper = merge_geometries([self.hand_o3d, finger_l, finger_r])
         return transform_geometry(gripper, pose)
 
     def get_control_points(
@@ -412,11 +427,15 @@ class PandaGripper(Gripper):
 
         T = np.tile(np.eye(4), (len(q), 1, 1))
         T[..., :3, -1] = self.finger_l_joint_axis * q[:, None]
-        finger_l_pts = transform_points_batch(self.finger_l_ctl_pts, T)  # [B, 2, 3]
+        finger_l_pts = transform_points_batch(
+            self.finger_l_pts.reshape(2, 2, 3).mean(1), T
+        )  # [B, 2, 3]
 
         T = np.tile(np.eye(4), (len(q), 1, 1))
         T[..., :3, -1] = self.finger_r_joint_axis * q[:, None]
-        finger_r_pts = transform_points_batch(self.finger_r_ctl_pts, T)  # [B, 2, 3]
+        finger_r_pts = transform_points_batch(
+            self.finger_r_pts.reshape(2, 2, 3).mean(1), T
+        )  # [B, 2, 3]
 
         if symmetric:
             control_points = np.stack([finger_r_pts, finger_l_pts], axis=-2).reshape(
@@ -468,20 +487,21 @@ class XArmGripper(Gripper):
         self.camera = transform_geometry(self.camera, T_gripper_camera)
 
         # finger_pts are the 4 corners of the square finger contact pad
+        # See xarm_description/meshes/gripper/xarm/left_finger.STL
         self.finger_l_pts = np.array([
             [0.01475, -0.026003, 0.022253],
             [-0.01475, -0.026003, 0.022253],
             [-0.01475, -0.026003, 0.059753],
             [0.01475, -0.026003, 0.059753],
         ])
-        self.finger_r_pts = self.finger_l_pts * [1, -1, 1]  # invert y coords
+        self.finger_r_pts = self.finger_l_pts * [-1, -1, 1]  # invert xy coords
         T_gripper_finger_l = np.eye(4)
-        T_gripper_finger_l[:3, -1] = [0, 0.02682323, 0.11348719]
+        T_gripper_finger_l[:3, -1] = [0, 0.02682323, 0.11348719]  # left_finger_joint
         self.finger_l_pts = transform_points(self.finger_l_pts, T_gripper_finger_l)
         self.finger_l = transform_geometry(self.finger_l, T_gripper_finger_l)
         self.finger_l_joint_axis = np.array([0, 0.96221329, -0.27229686])
         T_gripper_finger_r = np.eye(4)
-        T_gripper_finger_r[:3, -1] = [0, -0.02682323, 0.11348719]
+        T_gripper_finger_r[:3, -1] = [0, -0.02682323, 0.11348719]  # right_finger_joint
         self.finger_r_pts = transform_points(self.finger_r_pts, T_gripper_finger_r)
         self.finger_r = transform_geometry(self.finger_r, T_gripper_finger_r)
         self.finger_r_joint_axis = np.array([0, -0.96221329, -0.27229686])
