@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import mayavi.mlab as mlab
 import numpy as np
 
-from . import mesh_utils
+from .gripper import create_gripper
 
 
 def plot_mesh(mesh, cam_trafo=np.eye(4), mesh_pose=np.eye(4)):
@@ -260,7 +260,7 @@ def draw_grasps(
         show_gripper_mesh {bool} -- Renders the gripper mesh for one of the grasp poses (default: {False})
     """
 
-    gripper = mesh_utils.create_gripper("panda")
+    gripper = create_gripper("panda")
     gripper_control_points = gripper.get_control_point_tensor(
         1, False, convex_hull=False
     ).squeeze()

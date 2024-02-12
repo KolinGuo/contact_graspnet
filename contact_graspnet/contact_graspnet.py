@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow.compat.v1 as tf
 
-from . import mesh_utils
+from .gripper import create_gripper
 from .pointnet2.tf_ops.grouping.tf_grouping import group_point
 from .pointnet2.tf_ops.sampling.tf_sampling import farthest_point_sample, gather_point
 from .pointnet2.utils import tf_util
@@ -552,7 +552,7 @@ def get_losses(
     )
     # pos_gt_grasps_proj = tf.reshape(pos_gt_grasps_proj, (global_config['OPTIMIZER']['batch_size'], -1, 4, 4))
 
-    gripper = mesh_utils.create_gripper("panda")
+    gripper = create_gripper("panda")
     gripper_control_points = gripper.get_control_point_tensor(
         global_config["OPTIMIZER"]["batch_size"]
     )  # b x 5 x 3
