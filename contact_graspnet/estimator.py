@@ -104,7 +104,6 @@ class CGNGraspEstimator:
 
     @timer
     def load_cgn_model(self) -> None:
-        # FIXME: lots of tf warnings
         self.grasp_estimator = GraspEstimator(self.config)
         self.grasp_estimator.build_network()
 
