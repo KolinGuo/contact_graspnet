@@ -165,8 +165,8 @@ class PandaGripper(Gripper):
         self.q = q
 
         # Load gripper meshes
-        self.base = trimesh.load(mesh_dir / "hand.stl")
-        self.finger_l: trimesh.Trimesh = trimesh.load(mesh_dir / "finger.stl")  # type: ignore
+        self.base = trimesh.load(mesh_dir / "hand_cgn.stl")
+        self.finger_l: trimesh.Trimesh = trimesh.load(mesh_dir / "finger_cgn.stl")  # type: ignore
         self.finger_r: trimesh.Trimesh = self.finger_l.copy()  # type: ignore
 
         # transform fingers relative to the base
