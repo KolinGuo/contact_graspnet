@@ -12,12 +12,22 @@ ICRA 2021
 
 ## Installation
 
+Install this github repo with
+```bash
+python3 -m pip install git+https://github.com/KolinGuo/contact_graspnet
+```
+
+<details>
+<summary>With conda (original CGN repo)</summary>
+<p>
 This code has been tested with python 3.7, tensorflow 2.2, CUDA 11.1
 
 Create the conda env
 ```
 conda env create -f contact_graspnet_env.yml
 ```
+</p>
+</details>
 
 ### Troubleshooting
 
