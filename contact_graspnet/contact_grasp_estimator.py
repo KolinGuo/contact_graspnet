@@ -231,7 +231,7 @@ class GraspEstimator:
                 size = np.minimum(
                     np.maximum(np.max(obj_extent) * 2, min_size), max_size
                 )
-                logger.info("Extracted Region Cube Size: %d", size)
+                logger.info("Extracted Region Cube Size: %f", size)
                 partial_pc = full_pc[
                     np.all(full_pc > (obj_center - size / 2), axis=1)
                     & np.all(full_pc < (obj_center + size / 2), axis=1)
