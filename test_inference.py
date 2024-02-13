@@ -6,6 +6,7 @@ from real_robot.utils.logger import get_logger
 from real_robot.utils.visualization import Visualizer
 
 from contact_graspnet import CGNGraspEstimator
+
 # ruff: noqa: F841
 
 
