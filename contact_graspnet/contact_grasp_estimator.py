@@ -1,6 +1,8 @@
 import importlib
 import logging
+import re
 import sys
+from pathlib import Path
 
 import numpy as np
 import tensorflow.compat.v1 as tf
@@ -128,20 +130,44 @@ class GraspEstimator:
 
         return self.model_ops
 
-    def load_weights(self, sess, saver, log_dir, mode="test"):
+    def load_weights(
+        self,
+        sess,
+        saver,
+        log_dir,
+        mode="test",
+        logger=logging.getLogger(__name__),
+    ):
         """
         Load checkpoint weights
         :param sess: tf.Session
         :param saver: tf.train.Saver
         """
-
-        chkpt = tf.train.get_checkpoint_state(log_dir)
+        chkpt = tf.train.get_checkpoint_state(
+            log_dir,
+            latest_filename="checkpoint.txt"
+            if (Path(log_dir) / "checkpoint.txt").is_file()
+            else "checkpoint",
+        )
         if chkpt and chkpt.model_checkpoint_path:
-            print("Loading", chkpt.model_checkpoint_path)
-            saver.restore(sess, chkpt.model_checkpoint_path)
+            # Load checkpoint with highest iteration number
+            iter_max = -1
+            for model_ckpt_path in Path(log_dir).glob("model.ckpt-*.index"):
+                logger.info("Found checkpoint: %s", model_ckpt_path.name)
+                iter_max = max(
+                    iter_max,
+                    int(
+                        re.findall(
+                            r"model\.ckpt-([0-9]+)\.index", model_ckpt_path.name
+                        )[0]
+                    ),
+                )
+            model_ckpt_path = f"{log_dir}/model.ckpt-{iter_max}"
+            logger.info("Loading %s", model_ckpt_path)
+            saver.restore(sess, model_ckpt_path)
         else:
             if mode == "test":
-                print("no checkpoint in ", log_dir)
+                logger.error("No checkpoint in %s", log_dir)
                 sys.exit()
             else:
                 sess.run(tf.global_variables_initializer())
