@@ -210,7 +210,8 @@ class CGNGraspEstimator:
             self.obs_dict["depth_image"] = depth
             self.obs_dict["K"] = K
             self.obs_dict["xyz_image"] = xyz_image
-            self.obs_dict["seg_mask"] = seg
+            if seg is not None:
+                self.obs_dict["seg_mask"] = seg
         else:
             self.obs_dict["input_points"] = pcd
 
