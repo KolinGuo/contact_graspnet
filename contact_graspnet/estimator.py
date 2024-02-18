@@ -358,28 +358,29 @@ class CGNGraspEstimator:
 
             control_points = self.gripper.get_control_points(_q_vals, pred_grasps_world)
             control_points_geometry_name = f"{group_prefix}/obj_{seg_id}/pts"
+            # If control points are already added, do not change its color
+            apply_lineset_color = control_points_geometry_name not in o3d_vis.geometries
             o3d_vis.add_geometry(
                 control_points_geometry_name,
                 self.gripper.get_control_points_lineset(control_points),
-                show=False,
             )
-
-            # Apply the same color to control points lineset as the mask segmentation
-            node = o3d_vis.geometries[control_points_geometry_name]
-            node.mat_color = gui.Color(
-                *np.asarray(_palette[seg_id * 3 : (seg_id + 1) * 3]) / 255.0, 1.0
-            )
-            current_selected_item = o3d_vis._geometry_tree.selected_item
-            o3d_vis._on_geometry_tree(node.id)
-            # Update geometry material using o3d_vis.settings.material
-            o3d_vis._scene.scene.modify_geometry_material(
-                node.name, o3d_vis.settings.material
-            )
-            o3d_vis._on_geometry_tree(current_selected_item)
+            if apply_lineset_color:
+                # Apply the same color to control points lineset as mask segmentation
+                node = o3d_vis.geometries[control_points_geometry_name]
+                node.mat_color = gui.Color(
+                    *np.asarray(_palette[seg_id * 3 : (seg_id + 1) * 3]) / 255.0, 1.0
+                )
+                current_selected_item = o3d_vis._geometry_tree.selected_item
+                o3d_vis._on_geometry_tree(node.id)
+                # Update geometry material using o3d_vis.settings.material
+                o3d_vis._scene.scene.modify_geometry_material(
+                    node.name, o3d_vis.settings.material
+                )
+                o3d_vis._on_geometry_tree(current_selected_item)
 
         # Set o3d_vis focused camera
-        if "depth_image" in self.obs_dict:
-            o3d_vis.set_focused_camera(f"{group_prefix}_camera")
+        # if "depth_image" in self.obs_dict:
+        #     o3d_vis.set_focused_camera(f"{group_prefix}_camera")
 
         self.logger.info(
             "The Visualizer will be paused. Press the 'Single Step' button "
