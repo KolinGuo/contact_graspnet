@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -25,7 +26,9 @@ for gpu in tf.config.experimental.list_physical_devices("GPU"):
 class CGNGraspEstimator:
     """Contact-GraspNet Grasp Estimator wrapper"""
 
-    CKPT_DIR = Path(__file__).resolve().parent / "checkpoints"
+    CKPT_DIR = Path(
+        os.getenv("CGN_CKPT_DIR", Path.home() / "checkpoints/contact_graspnet")
+    )
 
     CGN_CKPT_DIRS = {
         "train_test": CKPT_DIR / "contact_graspnet_train_and_test",
