@@ -289,6 +289,7 @@ class CGNGraspEstimator:
         rgb_image: Optional[np.ndarray] = None,
         group_prefix="CGN",
         vis: Optional[Visualizer] = None,
+        pause_render=True,
     ) -> Visualizer:
         """Visualize grasps using Visualizer
 
@@ -302,6 +303,7 @@ class CGNGraspEstimator:
         :param rgb_image: RGB image for visualization, [H, W, 3] np.uint8 np.ndarray
         :param group_prefix: prefix for visualization geometry name
         :param vis: Visualizer instance
+        :param pause_render: whether to pause visualization rendering
         :return: Visualizer instance
         """
         if vis is None:
@@ -379,7 +381,8 @@ class CGNGraspEstimator:
             "The Visualizer will be paused. Press the 'Single Step' button "
             "on the top right corner of the Open3D window to continue."
         )
-        visualizer.pause_render = True  # Pause the Visualizer
+        if pause_render:
+            visualizer.pause_render = True  # Pause the Visualizer
         vis.render()  # render once
         return vis
 
