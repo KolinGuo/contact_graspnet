@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import gdown
 import numpy as np
 import open3d.visualization.gui as gui  # type: ignore
 import tensorflow.compat.v1 as tf  # type: ignore
@@ -30,14 +31,14 @@ class CGNGraspEstimator:
         os.getenv("CGN_CKPT_DIR", Path.home() / "checkpoints/contact_graspnet")
     )
 
-    CGN_CKPT_DIRS = {
+    CKPT_DIRS = {
         "train_test": CKPT_DIR / "contact_graspnet_train_and_test",
         "rad2_32": CKPT_DIR / "scene_2048_bs3_rad2_32",
         "hor_sigma_001": CKPT_DIR / "scene_test_2048_bs3_hor_sigma_001",
         "hor_sigma_0025": CKPT_DIR / "scene_test_2048_bs3_hor_sigma_0025",
     }
 
-    CGN_CKPT_GDOWN_IDS = {
+    CKPT_GDOWN_IDS = {
         "train_test": "1aHlRwSq4WJ7bzutASKOFUAgVlpKuO9MH",
         "rad2_32": "1YpWo-xr1jGMmE2dVNM8bn1iRsjNS1dV1",
         "hor_sigma_001": "1vcHNeKgMpHpeWKggkRdWmMr4-ymEPQx8",
@@ -50,7 +51,7 @@ class CGNGraspEstimator:
 
     def __init__(
         self,
-        cgn_model_variant: str = "hor_sigma_0025",
+        model_variant: str = "hor_sigma_0025",
         forward_passes: int = 1,
         arg_configs: Optional[list[str]] = None,
         save_dir: str = "results",
@@ -61,9 +62,11 @@ class CGNGraspEstimator:
         :param forward_passes: Number of forward passes to run on each point cloud.
                                Same as batch_size
         """
-        self.logger.info('Using CGN model variant: "%s"', cgn_model_variant)
+        self.logger.info('Using CGN model variant: "%s"', model_variant)
 
-        self.ckpt_dir = self.CGN_CKPT_DIRS[cgn_model_variant]
+        self.ckpt_dir = self.CKPT_DIRS[model_variant]
+        self.model_variant = model_variant
+
         self.forward_passes = forward_passes
         if arg_configs is None:
             arg_configs = []
@@ -71,16 +74,8 @@ class CGNGraspEstimator:
         self.device = device
         assert device == "cuda", "Using GPU other than cuda:0 is not implemented yet"
 
-        if not self.ckpt_dir.is_dir():
-            self.logger.info("No checkpoint found locally.")
-            self.download_model_checkpoint(cgn_model_variant)
-
-        self.config = config_utils.load_config(
-            self.ckpt_dir, batch_size=self.forward_passes, arg_configs=arg_configs
-        )
-
         # Load CGN model
-        self.load_cgn_model()
+        self.load_model(arg_configs)
 
         # Create gripper for pose conversion and visualization
         self.gripper_type = gripper_type
@@ -94,19 +89,25 @@ class CGNGraspEstimator:
         # Cache observation input for visualization
         self.obs_dict = {}
 
-    def download_model_checkpoint(self, model_variant: str) -> None:
-        import gdown
-
-        self.logger.info("Begin downloading model checkpoint...")
-        ret = gdown.download_folder(
-            id=self.CGN_CKPT_GDOWN_IDS[model_variant], output=str(self.ckpt_dir)
-        )
-        if ret is None:
-            raise RuntimeError(f'Failed to download model "{model_variant}"')
-        self.logger.info("Finish downloading model checkpoint...")
-
     @timer
-    def load_cgn_model(self) -> None:
+    def load_model(self, arg_configs: Optional[list[str]] = None) -> None:
+        # Download checkpoint if not found
+        if not self.ckpt_dir.is_dir():
+            self.logger.info("No checkpoint found locally.")
+
+            self.logger.info("Begin downloading model checkpoint...")
+            ret = gdown.download_folder(
+                id=self.CKPT_GDOWN_IDS[self.model_variant],
+                output=str(self.ckpt_dir),
+            )
+            if ret is None:
+                raise RuntimeError(f'Failed to download model "{self.model_variant}"')
+            self.logger.info("Finish downloading model checkpoint...")
+
+        self.config = config_utils.load_config(
+            self.ckpt_dir, batch_size=self.forward_passes, arg_configs=arg_configs
+        )
+
         self.grasp_estimator = GraspEstimator(self.config)
         self.grasp_estimator.build_network()
 
