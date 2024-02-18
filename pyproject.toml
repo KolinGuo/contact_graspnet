@@ -7,7 +7,7 @@ name = "contact_graspnet"
 version = "0.0.2"
 dependencies = [
   "numpy",
-  "tensorflow==2.12.1",
+  "tensorflow==2.11.1",
   "pynvml",
   "pyyaml",
   "opencv-python",
