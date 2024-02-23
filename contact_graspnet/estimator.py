@@ -45,7 +45,7 @@ class CGNGraspEstimator:
         "hor_sigma_0025": "1r5leQmnbJP2kLOB-I4wX_jdZuW5L_MTZ",
     }
 
-    SUPPORTED_GRIPPER_TYPE = ("panda", "xarm")
+    SUPPORTED_GRIPPER_TYPE = ("panda", "xarm", "mycobot")
 
     logger = get_logger("CGN")
 

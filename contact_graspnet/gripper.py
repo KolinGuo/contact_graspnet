@@ -11,7 +11,9 @@ import open3d.visualization.rendering as rendering  # type: ignore
 import tensorflow.compat.v1 as tf  # type: ignore
 import trimesh
 import trimesh.transformations as tra
+from real_robot.utils.visualization.utils import convert_mesh_format
 from transforms3d.euler import euler2mat
+from urchin import URDF
 
 from .mesh_utils import (
     merge_geometries,
@@ -23,6 +25,17 @@ from .mesh_utils import (
 
 class Gripper(abc.ABC):
     """Abastract base class for different gripper"""
+
+    @staticmethod
+    def load_o3d_mesh(path: str | Path) -> rendering.TriangleMeshModel:
+        """Load an open3d mesh as a rendering.TriangleMeshModel"""
+        if Path(path).suffix not in [".ply", ".stl", ".obj", ".off", ".gltf", ".glb"]:
+            path = convert_mesh_format(path, export_suffix=".glb")
+
+        geometry_type = o3d.io.read_file_geometry_type(str(path))
+        assert geometry_type & o3d.io.CONTAINS_TRIANGLES, f"{path} is not a mesh"
+
+        return o3d.io.read_triangle_model(str(path))
 
     @abc.abstractmethod
     def convert_grasp_poses(
@@ -143,15 +156,15 @@ class PandaGripper(Gripper):
     def __init__(
         self,
         q=None,
-        num_contact_points_per_finger=10,
+        num_contact_points_per_finger: int = 10,
         root_folder=Path(__file__).resolve().parent,
     ):
         """Create a Franka Panda parallel-yaw gripper object.
 
         Keyword Arguments:
-            q {list of int} -- opening configuration (default: {None})
-            num_contact_points_per_finger {int} -- contact points per finger (default: {10})
-            root_folder {str} -- base folder for model files (default: {''})
+            q {list of int} -- opening configuration
+            num_contact_points_per_finger {int} -- contact points per finger
+            root_folder {str} -- base folder for model files
         """
         mesh_dir = Path(root_folder) / "gripper_models/panda_gripper"
         self.control_pts_dir = Path(root_folder) / "gripper_control_points"
@@ -249,7 +262,8 @@ class PandaGripper(Gripper):
         return [self.finger_l, self.finger_r, self.base]
 
     def get_closing_rays_contact(self, transform):
-        """Get an array of rays defining the contact locations and directions on the hand.
+        """
+        Get an array of rays defining the contact locations and directions on the hand.
 
         Arguments:
             transform {[nump.array]} -- a 4x4 homogeneous matrix
@@ -356,17 +370,17 @@ class PandaGripper(Gripper):
             num_grasps = len(grasp_pose)
 
             if pred_gripper_openings is None:
-                gripper_opening = np.asarray([self.gripper_width] * num_grasps)
+                gripper_openings = np.asarray([self.gripper_width] * num_grasps)
             else:
-                gripper_opening = np.asarray([pred_gripper_openings[seg_id]]).reshape(  # type: ignore
+                gripper_openings = np.asarray([pred_gripper_openings[seg_id]]).reshape(  # type: ignore
                     -1
                 )
             assert (
-                len(gripper_opening) == num_grasps
-            ), f"{gripper_opening.shape = } {grasp_pose.shape = }"
+                len(gripper_openings) == num_grasps
+            ), f"{gripper_openings.shape = } {grasp_pose.shape = }"
 
             # Convert gripper width to joint value
-            q_vals[seg_id] = gripper_opening / 2
+            q_vals[seg_id] = gripper_openings / 2
 
             # Convert gripper pose to align with URDF frame orientation
             T = np.eye(4)
@@ -462,9 +476,9 @@ class XArmGripper(Gripper):
     def __init__(self, root_folder=Path(__file__).resolve().parent):
         mesh_dir = Path(root_folder) / "gripper_models/xarm_gripper"
 
-        self.load_gripper_meshes(mesh_dir)
-
         self.joint_limits = [0.0, 0.0453556139430441]
+
+        self.load_gripper_meshes(mesh_dir)
 
     def load_gripper_meshes(self, mesh_dir: Path):
         """Load gripper meshes and apply relative transform to gripper hand link"""
@@ -541,7 +555,7 @@ class XArmGripper(Gripper):
         :param pred_gripper_openings: CGN predicted gripper opening widths
                                       [n_grasps,] np.floating np.ndarray or float
                                       If None, use self.gripper_width.
-        :return grasp_poses: converted gripper pose to align with URDF frame orientation
+        :return grasp_poses: converted grasp poses of xarm_gripper_base_link link
                              approaching +z, baseline +y
                              [n_grasps, 4, 4] np.floating np.ndarray
         :return q_vals: gripper joint value, [n_grasps,] np.floating np.ndarray
@@ -678,6 +692,248 @@ class XArmGripper(Gripper):
         return control_points
 
 
+class MyCobotGripper(Gripper):
+    """An object representing a Elephant Robotics MyCobot Adaptive Gripper."""
+
+    def __init__(self, root_folder=Path(__file__).resolve().parent):
+        mesh_dir = Path(root_folder) / "gripper_models/mycobot_gripper"
+
+        self.joint_limits = [-0.7, 0.15]
+
+        self.load_gripper_meshes(mesh_dir)
+
+    def load_gripper_meshes(self, mesh_dir: Path):
+        """Load gripper meshes and apply relative transform to gripper hand link"""
+        urdf_path = Path(mesh_dir / "mycobot_gripper.urdf").resolve()
+        geometry_dir = urdf_path.parent
+
+        self.gripper_urdf: URDF = URDF.load(urdf_path, lazy_load_meshes=True)
+
+        self.meshes: list[rendering.TriangleMeshModel] = [
+            self.load_o3d_mesh(geometry_dir / geometry.mesh.filename)
+            for geometry in self.gripper_urdf.visual_geometry_fk()
+        ]
+
+        # finger_pts are the 4 corners of the square finger contact pad
+        # See mycobot_description/meshes/gripper/left_finger.dae
+        self.finger_l_pts = np.array([
+            [-0.020334, 0.040444, -0.006193],
+            [-0.020334, 0.040444, 0.013793],
+            [-0.020252, 0.066129, 0.013793],
+            [-0.020252, 0.066129, -0.006193],
+        ])
+        # See mycobot_description/meshes/gripper/right_finger.dae
+        self.finger_r_pts = np.array([
+            [0.019119, 0.040816, 0.013793],
+            [0.019119, 0.040816, -0.006193],
+            [0.019037, 0.066501, -0.006193],
+            [0.019037, 0.066501, 0.013793],
+        ])
+
+        # Get gripper_opening to q_val LUT
+        gripper_opening_to_q_val = []  # [(gripper_opening, q_val)]
+        for q in np.linspace(*self.joint_limits, 1000):  # type: ignore
+            geom_fk = {
+                geom.mesh.filename: T_gripper_geom
+                for geom, T_gripper_geom in self.gripper_urdf.visual_geometry_fk([
+                    q
+                ]).items()
+            }
+            T_gripper_finger_l = geom_fk["meshes/gripper/left_finger.dae"]
+            T_gripper_finger_r = geom_fk["meshes/gripper/right_finger.dae"]
+            finger_l_pts = transform_points(self.finger_l_pts, T_gripper_finger_l)
+            finger_r_pts = transform_points(self.finger_r_pts, T_gripper_finger_r)
+
+            gripper_opening_to_q_val.append((
+                np.linalg.norm(finger_l_pts.mean(0) - finger_r_pts.mean(0)),
+                q,
+            ))
+        self.gripper_opening_to_q_val = np.asarray(gripper_opening_to_q_val)
+
+        self.gripper_width = self.gripper_opening_to_q_val[-1, 0]
+
+    def convert_grasp_poses(
+        self,
+        pred_grasp_poses: np.ndarray | dict[int, np.ndarray],
+        pred_gripper_openings: Optional[
+            float | np.ndarray | dict[int, float | np.ndarray]
+        ] = None,
+    ) -> (
+        tuple[np.ndarray, np.ndarray]
+        | tuple[dict[int, np.ndarray], dict[int, np.ndarray]]
+    ):
+        """Converts grasp poses to align with URDF frame orientation
+        which has approaching +z, baseline +y.
+        Also, converts grasp pose from panda gripper to mycobot gripper.
+
+        Gripper pose orientation is shown below
+                  * gripper link origin
+                  |                  *---> y
+              *-------*              |
+              |       |              v
+              *       *              z
+            right    left
+
+        All params and returns can be {seg_id: np.ndarray} or np.ndarray.
+
+        :param pred_grasp_poses: CGN predicted gripper pose of panda_hand
+                                 approaching +z, baseline +x
+                                 [n_grasps, 4, 4] or [4, 4] np.floating np.ndarray
+        :param pred_gripper_openings: CGN predicted gripper opening widths
+                                      [n_grasps,] np.floating np.ndarray or float
+                                      If None, use self.gripper_width.
+        :return grasp_poses: converted grasp poses of gripper_base link
+                             approaching +z, baseline +y
+                             [n_grasps, 4, 4] np.floating np.ndarray
+        :return q_vals: gripper joint value, [n_grasps,] np.floating np.ndarray
+        """
+        if is_grasp_poses_array := isinstance(pred_grasp_poses, np.ndarray):
+            assert isinstance(pred_gripper_openings, (np.ndarray, type(None)))
+
+            pred_grasp_poses = {1: pred_grasp_poses}
+            if pred_gripper_openings is not None:
+                pred_gripper_openings = {1: pred_gripper_openings}
+
+        mycobot_obj_grasp_poses = {}
+        mycobot_obj_q_vals = {}
+        for seg_id, grasp_poses in pred_grasp_poses.items():
+            grasp_poses = np.asarray([grasp_poses]).reshape(-1, 4, 4)
+            num_grasps = len(grasp_poses)
+
+            if pred_gripper_openings is None:
+                gripper_openings = np.asarray([self.gripper_width] * num_grasps)
+            else:
+                gripper_openings = np.asarray([pred_gripper_openings[seg_id]]).reshape(  # type: ignore
+                    -1
+                )
+            assert (
+                len(gripper_openings) == num_grasps
+            ), f"{gripper_openings.shape = } {grasp_poses.shape = }"
+
+            # Convert gripper width to joint value
+            mycobot_obj_q_vals[seg_id] = q_vals = self.gripper_opening_to_q_val[
+                np.abs(
+                    self.gripper_opening_to_q_val[:, 0] - gripper_openings[:, None]
+                ).argmin(1),
+                1,
+            ]
+
+            # Get MyCobot gripper contact pad center (tcp) in gripper frame
+            T_mycobot_tcp = np.tile(np.eye(4), (num_grasps, 1, 1))
+            for i, q in enumerate(q_vals):
+                geom_fk = {
+                    geom.mesh.filename: T_gripper_geom
+                    for geom, T_gripper_geom in self.gripper_urdf.visual_geometry_fk([
+                        q
+                    ]).items()
+                }
+                T_gripper_finger_l = geom_fk["meshes/gripper/left_finger.dae"]
+                T_gripper_finger_r = geom_fk["meshes/gripper/right_finger.dae"]
+                finger_l_pts = transform_points(self.finger_l_pts, T_gripper_finger_l)
+                finger_r_pts = transform_points(self.finger_r_pts, T_gripper_finger_r)
+                T_mycobot_tcp[i, :3, -1] = (
+                    finger_l_pts.mean(0) + finger_r_pts.mean(0)
+                ) / 2
+
+            # Panda gripper contact pad center (tcp) in gripper frame
+            T_panda_tcp = np.eye(4)
+            T_panda_tcp[:3, :3] = euler2mat(0, 0, -np.pi / 2)  # rotate: change baseline
+            T_panda_tcp[:3, -1] = [0, 0, 0.1034]
+            T_panda_tcp = np.tile(T_panda_tcp, (num_grasps, 1, 1))
+
+            mycobot_obj_grasp_poses[seg_id] = (
+                grasp_poses @ T_panda_tcp @ np.linalg.inv(T_mycobot_tcp)
+            )
+
+        if is_grasp_poses_array:
+            return mycobot_obj_grasp_poses[1], mycobot_obj_q_vals[1]
+
+        return mycobot_obj_grasp_poses, mycobot_obj_q_vals
+
+    def get_mesh(
+        self, q: float = 0.0, pose: np.ndarray = np.eye(4)
+    ) -> rendering.TriangleMeshModel:
+        """Return gripper mesh at given q value and pose
+
+        :param q: gripper finger joint value
+        :param pose: gripper pose from world frame to gripper_base
+        :return: gripper mesh, rendering.TriangleMeshModel
+        """
+        return merge_geometries([
+            transform_geometry(mesh, pose @ T_gripper_mesh)
+            for mesh, T_gripper_mesh in zip(
+                self.meshes, self.gripper_urdf.visual_geometry_fk([q]).values()
+            )
+        ])
+
+    def get_control_points(
+        self,
+        q_vals: float | np.ndarray,
+        pose: np.ndarray = np.eye(4),
+        *,
+        use_tf=False,
+        symmetric=False,
+    ) -> np.ndarray | tf.Tensor:
+        """
+        Return the 5 control points of gripper representation at given q value and pose.
+        Control point order indices are shown below (symmetric=True is in parentheses)
+                  * 0 (0)
+                  |                  *---> y
+        2 (1) *-------* 1 (2)        |
+              |       |              v
+        4 (3) *       * 3 (4)         z
+            right    left
+
+        :param q: gripper finger joint value
+        :param pose: gripper pose from world frame to gripper_base
+        :return: [batch_size, 5, 3] np.floating np.ndarray
+        """
+        q_vals = np.asarray([q_vals]).reshape(-1)
+        pose = np.asarray([pose]).reshape(-1, 4, 4)
+        assert len(q_vals) == len(pose), f"{q_vals.shape = } {pose.shape = }"
+
+        finger_l_pts, finger_r_pts = [], []  # [B, 2, 3]
+        for q in q_vals:
+            geom_fk = {
+                geom.mesh.filename: T_gripper_geom
+                for geom, T_gripper_geom in self.gripper_urdf.visual_geometry_fk([
+                    q
+                ]).items()
+            }
+            T_gripper_finger_l = geom_fk["meshes/gripper/left_finger.dae"]
+            T_gripper_finger_r = geom_fk["meshes/gripper/right_finger.dae"]
+            finger_l_pts.append(
+                transform_points(
+                    self.finger_l_pts.reshape(2, 2, 3).mean(1), T_gripper_finger_l
+                )
+            )
+            finger_r_pts.append(
+                transform_points(
+                    self.finger_r_pts.reshape(2, 2, 3).mean(1),
+                    T_gripper_finger_r,
+                )
+            )
+        finger_l_pts, finger_r_pts = np.asarray(finger_l_pts), np.asarray(finger_r_pts)
+
+        if symmetric:
+            control_points = np.stack([finger_r_pts, finger_l_pts], axis=-2).reshape(
+                -1, 4, 3
+            )
+        else:
+            control_points = np.stack([finger_l_pts, finger_r_pts], axis=-2).reshape(
+                -1, 4, 3
+            )
+        control_points = np.concatenate(
+            [np.tile([0, 0, -0.0323], (len(q_vals), 1, 1)), control_points], axis=-2
+        )  # gripper_fix joint has xyz=[0, 0, -0.0323]
+        control_points = transform_points_batch(control_points, pose)
+
+        if use_tf:
+            return tf.convert_to_tensor(control_points)
+
+        return control_points
+
+
 def create_gripper(name, root_folder=Path(__file__).resolve().parent):
     """Create a gripper object.
 
@@ -698,5 +954,7 @@ def create_gripper(name, root_folder=Path(__file__).resolve().parent):
         return PandaGripper(root_folder=root_folder)
     elif name.lower() == "xarm":
         return XArmGripper(root_folder=root_folder)
+    elif name.lower() == "mycobot":
+        return MyCobotGripper(root_folder=root_folder)
     else:
         raise ValueError(f"Unknown gripper: {name}")

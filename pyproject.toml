@@ -12,6 +12,7 @@ dependencies = [
   "pyyaml",
   "opencv-python",
   "pillow",
+  "urchin",  # loading URDF
   "trimesh",
   "open3d",
   "blinker==1.4",  # weird system dependency on software-properties-common

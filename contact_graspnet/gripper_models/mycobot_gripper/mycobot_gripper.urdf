@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="mycobot_gripper" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <link name="gripper_base">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/gripper_base.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0 0"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/gripper_base.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0 0"/>
+    </collision>
+  </link>
+  <link name="left_finger">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/left_finger.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.039 -0.0133"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/left_finger.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.039 -0.0133"/>
+    </collision>
+  </link>
+  <link name="left_inner_knuckle">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/left_inner_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.005 -0.0195"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/left_inner_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.005 -0.0195"/>
+    </collision>
+  </link>
+  <link name="left_outer_knuckle">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/left_outer_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.012 0.0025"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/left_outer_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 -0.012 0.0025"/>
+    </collision>
+  </link>
+  <link name="right_finger">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/right_finger.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.039 -0.0133"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/right_finger.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.039 -0.0133"/>
+    </collision>
+  </link>
+  <link name="right_inner_knuckle">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/right_inner_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.005 -0.0195"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/right_inner_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.005 -0.0195"/>
+    </collision>
+  </link>
+  <link name="right_outer_knuckle">
+    <visual>
+      <geometry>
+        <mesh filename="meshes/gripper/right_outer_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.012 0.0025"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="meshes/gripper/right_outer_knuckle.dae"/>
+      </geometry>
+      <origin rpy="1.5708 0 -1.5708" xyz="0.012 0.012 0.0025"/>
+    </collision>
+  </link>
+  <link name="link_tcp"/>
+  <joint name="joint_tcp" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.08785025"/>
+    <parent link="gripper_base"/>
+    <child link="link_tcp"/>
+  </joint>
+  <joint name="gripper_controller" type="revolute">
+    <axis xyz="-1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="gripper_base"/>
+    <child link="left_outer_knuckle"/>
+    <origin rpy="0 0 0" xyz="0 0.012 0.005"/>
+  </joint>
+  <joint name="left_inner_knuckle_joint" type="revolute">
+    <axis xyz="-1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="gripper_base"/>
+    <child link="left_inner_knuckle"/>
+    <origin rpy="0 0 0" xyz="0 0.005 0.027"/>
+    <mimic joint="gripper_controller" multiplier="1.0" offset="0"/>
+  </joint>
+  <joint name="left_finger_joint" type="revolute">
+    <axis xyz="1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="left_outer_knuckle"/>
+    <child link="left_finger"/>
+    <origin rpy="0 0 0" xyz="0 0.027 0.016"/>
+    <mimic joint="gripper_controller" multiplier="1.0" offset="0"/>
+  </joint>
+  <joint name="right_outer_knuckle_joint" type="revolute">
+    <axis xyz="1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="gripper_base"/>
+    <child link="right_outer_knuckle"/>
+    <origin rpy="0 0 0" xyz="0 -0.012 0.005"/>
+    <mimic joint="gripper_controller" multiplier="1.0" offset="0"/>
+  </joint>
+  <joint name="right_inner_knuckle_joint" type="revolute">
+    <axis xyz="1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="gripper_base"/>
+    <child link="right_inner_knuckle"/>
+    <origin rpy="0 0 0" xyz="0 -0.005 0.027"/>
+    <mimic joint="gripper_controller" multiplier="1.0" offset="0"/>
+  </joint>
+  <joint name="right_finger_joint" type="revolute">
+    <axis xyz="-1 0 0"/>
+    <limit effort="1000.0" lower="-0.7" upper="0.15" velocity="0"/>
+    <parent link="right_outer_knuckle"/>
+    <child link="right_finger"/>
+    <origin rpy="0 0 0" xyz="0 -0.027 0.016"/>
+    <mimic joint="gripper_controller" multiplier="1.0" offset="0"/>
+  </joint>
+</robot>
