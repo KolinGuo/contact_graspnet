@@ -45,6 +45,7 @@ def main(data, args) -> None:
         cam_pose=np.eye(4),
         rgb_image=data["rgb"][..., ::-1],  # BGR -> RGB
     )
+    vis.close()
 
 
 if __name__ == "__main__":
