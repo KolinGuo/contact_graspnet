@@ -382,11 +382,11 @@ class CGNGraspEstimator:
         # if "depth_image" in self.obs_dict:
         #     o3d_vis.set_focused_camera(f"{group_prefix}_camera")
 
-        self.logger.info(
-            "The Visualizer will be paused. Press the 'Single Step' button "
-            "on the top right corner of the Open3D window to continue."
-        )
         if pause_render:
+            self.logger.info(
+                "The Visualizer will be paused. Press the 'Single Step' button "
+                "on the top right corner of the Open3D window to continue."
+            )
             visualizer.pause_render = True  # Pause the Visualizer
         vis.render()  # render once
         return vis
