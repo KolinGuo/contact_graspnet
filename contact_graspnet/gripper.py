@@ -11,7 +11,7 @@ import open3d.visualization.rendering as rendering  # type: ignore
 import tensorflow.compat.v1 as tf  # type: ignore
 import trimesh
 import trimesh.transformations as tra
-from real_robot.utils.visualization.utils import convert_mesh_format
+from real_robot.utils.lib3d.o3d_utils import convert_mesh_format
 from transforms3d.euler import euler2mat
 from urchin import URDF
 
